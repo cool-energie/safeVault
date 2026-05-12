@@ -71,4 +71,21 @@ public class AuthService
             return null;
         }
     }
+
+    public async Task<bool> SignInUserAsync(HttpContext context, User user)
+    {
+        var claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString()),
+        new Claim(ClaimTypes.Name, user.Username),
+        new Claim(ClaimTypes.Role, user.Role) // 🔥 role stored in cookie
+    };
+
+        var identity = new ClaimsIdentity(claims, "AppCookie");
+        var principal = new ClaimsPrincipal(identity);
+
+        await context.SignInAsync("AppCookie", principal);
+
+        return true;
+    }
 }

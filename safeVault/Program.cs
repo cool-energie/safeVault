@@ -12,30 +12,45 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+builder.Services.AddAuthentication("AppCookie")
+    .AddCookie("AppCookie", options =>
+    {
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/forbidden";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+    });
 
-var summaries = new[]
+builder.Services.AddAuthorization(options =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("UserOnly", policy => policy.RequireRole("user"));
+});
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/admin/dashboard", () => "Admin Panel")
+   .RequireAuthorization("AdminOnly");
+
+app.MapGet("/profile", () => "User Profile")
+   .RequireAuthorization("UserOnly");
+
+app.MapPost("/logout", async (HttpContext context) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    await context.SignOutAsync("AppCookie");
+    return Results.Ok("Logged out");
+});
+
+app.MapPost("/login", async (HttpContext context, AuthService auth, UserRepository repo, LoginRequest req) =>
+{
+    var user = await repo.GetUserByIdentifierAsync(req.Identifier);
+
+    if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
+        return Results.BadRequest("Invalid credentials");
+
+    await auth.SignInUserAsync(context, user);
+
+    return Results.Ok("Logged in");
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
