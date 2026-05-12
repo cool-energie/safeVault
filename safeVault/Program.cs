@@ -12,6 +12,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("loginLimiter", limiter =>
+    {
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.PermitLimit = 5; // 5 attempts per minute
+        limiter.QueueLimit = 0;
+    });
+});
+
 builder.Services.AddAuthentication("AppCookie")
     .AddCookie("AppCookie", options =>
     {
@@ -50,7 +60,7 @@ app.MapPost("/login", async (HttpContext context, AuthService auth, UserReposito
     await auth.SignInUserAsync(context, user);
 
     return Results.Ok("Logged in");
-});
+}).RequireRateLimiting("loginLimiter");;
 
 app.Run();
 

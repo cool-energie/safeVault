@@ -7,3 +7,6 @@ CREATE TABLE Users (
 
 ALTER TABLE Users
 ADD Password VARCHAR(255) NOT NULL;
+
+ALTER TABLE Users
+MODIFY Role ENUM('admin', 'user', 'manager') NOT NULL DEFAULT 'user';
